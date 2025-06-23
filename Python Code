@@ -1,0 +1,115 @@
+class SuffixAutomaton:
+
+    def __init__(self, s: str):
+  
+        # States are stored as a list of dictionaries.
+        # Each dict: {'len': int, 'link': int, 'trans': {char: int}}
+        self.states = [{'len': 0, 'link': -1, 'trans': {}}]
+        self.last = 0  # Index of the state corresponding to the whole string
+
+        # Extend the automaton for each character in the string
+        for char in s:
+            self._extend(char)
+
+    def _extend(self, char: str):
+  
+        # Create a new state for the new whole string
+        new_state_idx = len(self.states)
+        self.states.append({'len': self.states[self.last]['len'] + 1, 'link': -1, 'trans': {}})
+        
+        p = self.last
+        # Follow suffix links until we find a transition for 'char' or reach the start
+        while p != -1 and char not in self.states[p]['trans']:
+            self.states[p]['trans'][char] = new_state_idx
+            p = self.states[p]['link']
+
+        if p == -1:
+            # Case 1: Reached the initial state. Link the new state to the initial state.
+            self.states[new_state_idx]['link'] = 0
+        else:
+            q_idx = self.states[p]['trans'][char]
+            q_state = self.states[q_idx]
+            p_state = self.states[p]
+
+            if q_state['len'] == p_state['len'] + 1:
+                # Case 2: The "simple" case. The transition is contiguous.
+                self.states[new_state_idx]['link'] = q_idx
+            else:
+                # Case 3: The "tricky" case. We need to split state q.
+                clone_idx = len(self.states)
+                clone_state = {
+                    'len': p_state['len'] + 1,
+                    'link': q_state['link'],
+                    'trans': q_state['trans'].copy()
+                }
+                self.states.append(clone_state)
+
+                # Redirect transitions from p's suffix path that pointed to q
+                while p != -1 and self.states[p]['trans'].get(char) == q_idx:
+                    self.states[p]['trans'][char] = clone_idx
+                    p = self.states[p]['link']
+                
+                # Update suffix links for the original q and the new state
+                self.states[q_idx]['link'] = clone_idx
+                self.states[new_state_idx]['link'] = clone_idx
+        
+        self.last = new_state_idx
+
+    def count_distinct_substrings(self) -> int:
+        """
+        Calculates the number of distinct substrings using the property
+        that each state 's' introduces (s.len - s.link.len) new substrings.
+        """
+        count = 0
+        # Iterate through all states (state 0 has link=-1, len=0 so it adds 0)
+        for i in range(1, len(self.states)):
+            state = self.states[i]
+            link_state = self.states[state['link']]
+            count += state['len'] - link_state['len']
+        return count
+
+# --- Example Usage ---
+
+# Example 1: "abac"
+# Distinct substrings are: a, b, c, ab, ba, ac, aba, bac, abac (9 total)
+s1 = "abac"
+sa1 = SuffixAutomaton(s1)
+distinct_count1 = sa1.count_distinct_substrings()
+print(f"String: '{s1}'")
+print(f"Number of states in automaton: {len(sa1.states)}")
+print(f"Number of distinct substrings: {distinct_count1}")
+assert distinct_count1 == 9
+print("-" * 30)
+
+
+# Example 2: "aaaaa"
+# Distinct substrings are: a, aa, aaa, aaaa, aaaaa (5 total)
+s2 = "aaaaa"
+sa2 = SuffixAutomaton(s2)
+distinct_count2 = sa2.count_distinct_substrings()
+print(f"String: '{s2}'")
+print(f"Number of states in automaton: {len(sa2.states)}")
+print(f"Number of distinct substrings: {distinct_count2}")
+assert distinct_count2 == 5
+print("-" * 30)
+
+# Example 3: "abcbc"
+# a, b, c, ab, bc, cb, abc, bcb, cbc, abcb, bcbc, abcbc (12 total)
+s3 = "abcbc"
+sa3 = SuffixAutomaton(s3)
+distinct_count3 = sa3.count_distinct_substrings()
+print(f"String: '{s3}'")
+print(f"Number of states in automaton: {len(sa3.states)}")
+print(f"Number of distinct substrings: {distinct_count3}")
+assert distinct_count3 == 12
+print("-" * 30)
+
+# Example 4: An empty string
+s4 = ""
+sa4 = SuffixAutomaton(s4)
+distinct_count4 = sa4.count_distinct_substrings()
+print(f"String: '{s4}'")
+print(f"Number of states in automaton: {len(sa4.states)}")
+print(f"Number of distinct substrings: {distinct_count4}")
+assert distinct_count4 == 0
+print("-" * 30)
